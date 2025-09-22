@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臻悦艺</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #F9EBE8;
+            margin-top: 60px; /* 为顶部固定导航栏预留空间 */
+        }
+
+        /* 标题样式 */
+        h1 {
+            font-family: '宋体', SimSun;
+            margin: 0;
+            color: #FFA2B6;
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        /* 宣传语样式：向右移动+字体放大 */
+        .subtitle {
+            font-family: '行楷', cursive;
+            color: #FFA2B6;
+            margin: 5px 0 5px 60px;
+            font-size: 20px;
+        }
+
+        /* 导航栏样式：整行粉色+字体黑色 */
+       .nav-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #FED6CE;
+            padding: 10px 0;
+            z-index: 999;
+        }
+       .nav {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: flex-end;
+            margin-right: 20px;
+        }
+       .nav li {
+            margin-right: 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+       .nav li a {
+            color: #000; /* 导航栏字体改为黑色 */
+            text-decoration: none; /* 去除默认下划线 */
+        }
+       .nav li a:hover {
+            text-decoration: underline; /* 鼠标悬浮时显示下划线，提升交互感 */
+        }
+
+        /* 产品和加盟优势区域：标题粉色下划线 */
+       .section {
+            margin-top: 20px;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 10px;
+            background-color: #F9EBE8;
+            border-radius: 5px;
+            padding: 15px;
+        }
+       .section h2 {
+            color: #000;
+            margin-top: 0;
+            text-decoration: underline;
+            text-decoration-color: #FFA2B6;
+            text-underline-offset: 6px;
+            text-decoration-thickness: 2px;
+        }
+
+       .products,
+       .advantages {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+       .product-item,
+       .advantage-item {
+            text-align: center;
+            margin: 10px;
+            background-color: #F9EBE8;
+            border-radius: 5px;
+            padding: 12px 15px; /* 增加内边距，适配更大emoji */
+        }
+        /* 产品分类：emoji样式 */
+       .product-item p a {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 19px; /* 文字同步放大，适配更大emoji */
+        }
+        /* 统一产品和加盟优势的emoji样式，加盟emoji进一步放大 */
+       .product-item p a .emoji {
+            font-size: 32px; /* 产品emoji保持原大小，确保协调 */
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+       .advantage-item p .emoji {
+            font-size: 38px; /* 加盟emoji放大至38px，更醒目 */
+            vertical-align: middle;
+            margin-right: 10px; /* 增加间距，避免拥挤 */
+        }
+       .product-item p a:hover {
+            color: #FFA2B6;
+            background-color: #FED6CE;
+            border-radius: 3px;
+            padding: 5px 10px;
+        }
+        /* 加盟优势：文字尺寸适配更大emoji */
+       .advantage-item p {
+            font-size: 19px; /* 文字放大，与加盟emoji比例协调 */
+            margin: 0;
+        }
+
+        /* 联系我们和快速导航区域：快速导航右移+可点击 */
+       .contact-block {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            background-color: #FED6CE;
+            border-radius: 5px;
+            padding: 15px;
+            gap: 50px;
+            margin-left: 0;
+        }
+
+       .contact-info {
+            margin: 10px 0 10px 20px;
+        }
+
+       .quick-nav {
+            margin: 10px 0 10px 250px; /* 快速导航进一步右移（数值可调整） */
+        }
+       .quick-nav p {
+            margin: 8px 0;
+            cursor: pointer;
+        }
+       .quick-nav p a {
+            color: #000; /* 快速导航文字设为黑色，与页面协调 */
+            text-decoration: none;
+        }
+       .quick-nav p a:hover {
+            color: #FFA2B6; /* 鼠标悬浮时变色，增强交互 */
+        }
+
+        /* 底部链接样式 */
+        a {
+            color: #FFA2B6;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 导航栏：字体黑色+可点击 -->
+    <div class="nav-container">
+        <ul class="nav">
+            <li><a href=" ">首页</a ></li>
+            <li><a href="#join">品牌加盟</a ></li>
+            <li><a href="#products">产品展示</a ></li>
+            <li><a href="#news">最新资讯</a ></li>
+            <li><a href="#service">服务中心</a ></li>
+        </ul>
+    </div>
+
+    <!-- 标题+宣传语 -->
+    <h1 id="home">「臻悦艺」</h1>
+    <p class="subtitle">以臻心制甜，用悦味传艺</p >
+
+    <!-- 我们的产品：emoji保持协调大小 -->
+    <div id="products" class="section">
+        <h2>我们的产品 / Our Products</h2>
+        <div class="products">
+            <div class="product-item">
+                <p><a href="#cake-category"><span class="emoji">🍰</span> 蛋糕类</a ></p >
+            </div>
+            <div class="product-item">
+                <p><a href="#cookie-category"><span class="emoji">🍪</span> 干点类</a ></p >
+            </div>
+            <div class="product-item">
+                <p><a href="#bread-category"><span class="emoji">🥐</span> 面包类</a ></p >
+            </div>
+            <div class="product-item">
+                <p><a href="#drink-category"><span class="emoji">🥤</span> 饮品类</a ></p >
+            </div>
+        </div>
+    </div>
+
+    <!-- 加盟优势：emoji已进一步放大 -->
+    <div id="join" class="section">
+        <h2>加盟优势 / Joining Advantage</h2>
+        <div class="advantages">
+            <div class="advantage-item">
+                <p><span class="emoji">🏆</span> 强势品牌</p >
+            </div>
+            <div class="advantage-item">
+                <p><span class="emoji">🥚</span> 严格选材</p >
+            </div>
+            <div class="advantage-item">
+                <p><span class="emoji">📦</span> 强大供应链</p >
+            </div>
+            <div class="advantage-item">
+                <p><span class="emoji">🤝</span> 全面加盟辅助</p >
+            </div>
+            <div class="advantage-item">
+                <p><span class="emoji">📊</span> 数字化赋能</p >
+            </div>
+        </div>
+    </div>
+
+    <!-- 联系我们和快速导航：快速导航右移+可点击 -->
+    <div class="contact-block">
+        <div class="contact-info">
+            <h3>联系我们</h3>
+            <p>地址: XX市XX大道52号</p >
+            <p>电话: 400-888-1314</p >
+            <p>邮箱: service@cake.com</p >
+            <p>时间: 8:00am - 20:00pm</p >
+        </div>
+        <div class="quick-nav">
+            <h3>快速导航</h3>
+            <p><a href="#home">网站首页</a ></p >
+            <p><a href="#about">关于我们</a ></p >
+            <p><a href="#products">产品项目</a ></p >
+            <p><a href="#solution">解决方案</a ></p >
+            <p><a href="#contact">联系我们</a ></p >
+        </div>
+    </div>
+
+    <p>链接: <a href="http://www.zhenyueyi.com">www.zhenyueyi.com</a ></p >
+</body>
+</html>
