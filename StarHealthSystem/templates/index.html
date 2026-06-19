@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block page_title %}总览仪表盘{% endblock %}
+{% block content %}
+
+<div class="row g-4 mb-4">
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">总记录数</div>
+          <div class="stat-value">{{ stats.total_records }}</div>
+        </div>
+        <div class="stat-icon" style="background:#E8F4FF;color:#A8D2FF;"><i class="bi bi-journal-text"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">成员总数</div>
+          <div class="stat-value">{{ members|length }}</div>
+        </div>
+        <div class="stat-icon" style="background:#E8F0EC;color:#9BBBA8;"><i class="bi bi-people"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">平均 BMI</div>
+          <div class="stat-value">{{ stats.avg_bmi if stats.avg_bmi else '--' }}</div>
+        </div>
+        <div class="stat-icon" style="background:#F5EDE0;color:#D4B896;"><i class="bi bi-graph-up"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">活跃成员</div>
+          <div class="stat-value">{{ members|selectattr('latest_status')|list|length }}</div>
+        </div>
+        <div class="stat-icon" style="background:#f0f9ff;color:#06b6d4;"><i class="bi bi-activity"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  {% if members %}
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-people me-2"></i>成员列表</div>
+      <div class="table-wrap">
+        <table class="table table-hover">
+          <thead>
+            <tr><th>姓名</th><th>身高</th><th>记录数</th><th>最近 BMI</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for m in members %}
+            <tr>
+              <td>
+                <span class="badge bg-{{ 'primary' if m.gender == '男' else 'pink' }} me-1">{{ m.gender }}</span>
+                {{ m.name }}
+              </td>
+              <td class="text-secondary">{{ m.height }}cm</td>
+              <td><span class="badge text-bg-secondary">{{ m.record_count }}</span></td>
+              <td>
+                {% if m.latest_bmi %}
+                <span class="badge text-bg-{{ 'success' if m.latest_status == '正常' else 'danger' if m.latest_status in ['偏胖','肥胖'] else 'warning' }}">
+                  {{ m.latest_bmi }}
+                </span>
+                {% else %}<span class="text-muted">--</span>{% endif %}
+              </td>
+              <td><a href="{{ url_for('member_detail', mid=m.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-right"></i></a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clock-history me-2"></i>最近记录</div>
+      {% if recent_records %}
+      <div class="table-wrap">
+        <table class="table table-hover">
+          <thead><tr><th>成员</th><th>日期</th><th>体重</th><th>BMI</th><th>状态</th></tr></thead>
+          <tbody>
+            {% for r in recent_records %}
+            <tr>
+              <td class="fw-medium">{{ r[0] }}</td>
+              <td class="text-secondary">{{ r[1][:10] }}</td>
+              <td>{{ r[2] }}kg</td>
+              <td>{{ r[3] }}</td>
+              <td><span class="badge text-bg-{{ 'success' if r[4] == '正常' else 'danger' if r[4] in ['偏胖','肥胖'] else 'warning' }}">{{ r[4] }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>暂无记录，请先创建成员并录入数据。</p>
+        <a href="{{ url_for('new_member') }}" class="btn btn-primary">创建成员</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

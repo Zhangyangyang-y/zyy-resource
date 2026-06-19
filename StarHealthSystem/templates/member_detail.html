@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% block page_title %}{{ user.name }} · 详细数据{% endblock %}
+{% block content %}
+
+<!-- 成员头部 -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+         style="width:44px;height:44px;background:var(--primary-gradient);color:#fff;font-size:18px;">
+      {{ user.name[0] }}
+    </div>
+    <div>
+      <h5 class="fw-bold mb-0">{{ user.name }}
+        <span class="badge bg-{{ 'primary' if user.gender == '男' else 'pink' }} ms-1">{{ user.gender }}</span>
+      </h5>
+      <small class="text-muted">{{ user.height }}cm · {{ user.age }}岁 · {{ user.activity }}
+        {% if user.target_weight %} · 目标 <strong>{{ user.target_weight }}kg</strong>{% endif %}
+      </small>
+    </div>
+  </div>
+  <div class="mt-2 mt-md-0 d-flex gap-1">
+    <a href="{{ url_for('edit_member', mid=user.id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> 编辑</a>
+    <a href="{{ url_for('export_csv', mid=user.id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> 导出</a>
+  </div>
+</div>
+
+<!-- 指标卡片 -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">BMI 指数</div>
+          <div class="stat-value" id="displayBmi">{{ bmi_val if bmi_val else '--' }}</div>
+        </div>
+        <span id="displayBmiStatus" class="stat-badge
+          {% if bmi_status == '正常' %}text-bg-success{% elif bmi_status in ['偏胖','肥胖'] %}text-bg-danger{% elif bmi_status == '偏瘦' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+          {{ bmi_status if bmi_status else '--' }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">体脂率</div>
+          <div class="stat-value" id="displayBf">{{ bf_val if bf_val else '--' }}{% if bf_val %}%{% endif %}</div>
+        </div>
+        <span class="stat-badge
+          {% if bf_status == '标准' %}text-bg-success{% elif bf_status == '偏高' %}text-bg-warning{% elif bf_status == '过低' %}text-bg-info{% else %}text-bg-secondary{% endif %}">
+          {{ bf_status if bf_status else '--' }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">记录总数</div>
+          <div class="stat-value">{{ stats.get('count', 0) if stats else 0 }}</div>
+        </div>
+        {% if stats and stats.get('count', 0) > 0 %}
+        <span class="stat-badge text-bg-secondary">最新 {{ stats.get('latest_weight', '--') }}kg</span>
+        {% else %}
+        <span class="stat-badge text-bg-secondary">暂无</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 animate-in">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-label">目标进度</div>
+          <div class="stat-value" id="displayProgress">
+            {% if user.target_weight and user.target_weight > 0 and latest %}
+              {% set diff = latest[2] - user.target_weight %}
+              {% if diff|abs < 0.5 %}已达标{% else %}{{ '还需减 ' if diff > 0 else '还需增 ' }}{{ '%.1f'|format(diff|abs) }}kg{% endif %}
+            {% else %}--{% endif %}
+          </div>
+        </div>
+        {% if user.target_weight and user.target_weight > 0 %}
+        <span class="stat-badge text-bg-secondary">目标 {{ user.target_weight }}kg</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 快速操作栏 -->
+<div class="action-bar mb-4">
+  <span class="action-label"><i class="bi bi-weight me-1"></i>记录体重</span>
+  <div class="input-group input-group-sm" style="max-width:160px;">
+    <input type="number" step="0.1" class="form-control" id="weightInput" placeholder="体重"
+           {% if latest %}value="{{ latest[2] }}"{% endif %}>
+    <span class="input-group-text">kg</span>
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="calculateBMI()"><i class="bi bi-calculator me-1"></i>计算 BMI</button>
+  <span id="calcResult" class="small fw-medium
+    {% if bmi_val %}px-3 py-1 rounded-pill text-bg-{{ 'success' if bmi_status == '正常' else 'danger' if bmi_status in ['偏胖','肥胖'] else 'warning' }}{% endif %}">
+    {% if bmi_val %}BMI {{ bmi_val }} · {{ bmi_status }}{% else %}BMI: -- · 状态: --{% endif %}
+  </span>
+  <div class="ms-auto"></div>
+  <button class="btn btn-success btn-sm px-3" id="planBtn"
+          {% if not latest %}style="display:none"{% endif %}
+          onclick="generatePlan()">
+    <i class="bi bi-file-earmark-text me-1"></i>生成方案
+  </button>
+</div>
+
+<!-- 方案类型弹窗 -->
+<div class="modal fade" id="planTypeModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <i class="bi bi-question-circle" style="font-size:2rem;color:var(--primary);"></i>
+        <p class="my-3">体态正常，是否生成<strong>塑形方案</strong>？</p>
+        <div class="d-flex justify-content-center gap-2">
+          <button class="btn btn-primary btn-sm" onclick="closePlanModal();doGeneratePlan('塑形')">是的，我要塑形</button>
+          <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">暂时不用</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5个 Tab -->
+<ul class="nav nav-tabs nav-tabs-custom mb-3" id="userTabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-food">饮食计划</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-exercise">运动计划</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">历史记录</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-chart">数据图表</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats">统计分析</button></li>
+</ul>
+
+<div class="tab-content">
+  <!-- 饮食 -->
+  <div class="tab-pane fade show active" id="tab-food">
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table mb-0">
+            <thead><tr><th>餐次</th><th>食物</th><th>份量</th><th>热量(kcal)</th></tr></thead>
+            <tbody id="foodTableBody">
+              <tr><td colspan="4" class="text-center text-muted py-5">暂无方案，请先计算 BMI 并点击「生成方案」</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-3 py-2 border-top bg-light small" id="nutritionInfo" style="display:none;">
+          <span class="fw-medium">营养汇总：</span>
+          <span id="nutritionText" class="text-muted"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 运动 -->
+  <div class="tab-pane fade" id="tab-exercise">
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table mb-0">
+            <thead><tr><th>运动项目</th><th>时长</th><th>消耗热量(kcal)</th></tr></thead>
+            <tbody id="exerciseTableBody">
+              <tr><td colspan="3" class="text-center text-muted py-5">暂无方案，请先计算 BMI 并点击「生成方案」</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史 -->
+  <div class="tab-pane fade" id="tab-history">
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>日期</th><th>体重(kg)</th><th>BMI</th><th>体态</th><th>方案</th><th>操作</th></tr></thead>
+            <tbody id="historyTableBody">
+              {% if records %}
+              {% for r in records %}
+              <tr>
+                <td class="text-nowrap small text-secondary">{{ r[1][:16] }}</td>
+                <td class="fw-medium">{{ r[2] }}</td>
+                <td>{{ r[3] }}</td>
+                <td><span class="badge text-bg-{{ 'success' if r[4] == '正常' else 'danger' if r[4] in ['偏胖','肥胖'] else 'warning' }}">{{ r[4] }}</span></td>
+                <td class="text-secondary">{{ r[5] if r[5] else '—' }}</td>
+                <td><button class="btn btn-sm btn-outline-secondary" onclick="deleteRecord({{ r[0] }})"><i class="bi bi-trash"></i></button></td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-5">暂无记录</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表 -->
+  <div class="tab-pane fade" id="tab-chart">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <select class="form-select form-select-sm w-auto" id="chartTypeSelect">
+            <option value="weight">体重变化曲线</option>
+            <option value="bmi">人群 BMI 分布</option>
+          </select>
+        </div>
+        <div style="position:relative;height:320px;">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计 -->
+  <div class="tab-pane fade" id="tab-stats">
+    <div class="row g-3">
+      {% set stat_items = [
+        ('count', '记录总数', '#A8D2FF'),
+        ('latest_weight', '最新体重', '#DFFAF5'),
+        ('latest_bmi', '最新 BMI', '#D4B896'),
+        ('avg_bmi', '平均 BMI', '#8FC1F0'),
+        ('max_bmi', '最高 BMI', '#C88B8B'),
+        ('min_bmi', '最低 BMI', '#8CC8D4'),
+        ('weight_change', '体重变化', '#D4A878'),
+        ('avg_weight', '平均体重', '#8DB8AA'),
+      ] %}
+      {% for key, label, color in stat_items %}
+      <div class="col-md-3 col-6 animate-in">
+        <div class="stat-card">
+          <div class="stat-label">{{ label }}</div>
+          <div class="fw-bold" style="font-size:24px;color:{{ color }};">
+            {{ stats.get(key, '--') if stats else '--' }}
+            {% if key == 'weight_change' and stats and stats.get('weight_change') is number %}
+              {% if stats.weight_change > 0 %}<small class="text-success fw-normal">↑</small>{% elif stats.weight_change < 0 %}<small class="text-danger fw-normal">↓</small>{% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const USER_ID = {{ user.id }};
+const HAS_TARGET = {{ 'true' if user.target_weight and user.target_weight > 0 else 'false' }};
+const TARGET_WEIGHT = {{ user.target_weight if user.target_weight else 0 }};
+let latestCalc = null, chartInstance = null;
+
+function calculateBMI() {
+  const weight = document.getElementById('weightInput').value;
+  if (!weight) return showToast('请输入体重', 'warning');
+  fetch('/api/calculate', { method: 'POST', body: new URLSearchParams({ weight, member_id: USER_ID }) })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) return showToast(d.message, 'danger');
+      latestCalc = d;
+      const r = document.getElementById('calcResult');
+      r.textContent = `BMI ${d.bmi} · ${d.status}`;
+      r.className = 'small fw-medium px-3 py-1 rounded-pill text-bg-' +
+        (d.status === '正常' ? 'success' : d.status === '偏瘦' ? 'warning' : 'danger');
+      document.getElementById('displayBmi').textContent = d.bmi;
+      const s = document.getElementById('displayBmiStatus');
+      s.textContent = d.status;
+      s.className = 'stat-badge text-bg-' + (d.status === '正常' ? 'success' : d.status === '偏瘦' ? 'warning' : 'danger');
+      document.getElementById('displayBf').textContent = d.bf + '%';
+      if (HAS_TARGET) {
+        const diff = d.weight - TARGET_WEIGHT;
+        document.getElementById('displayProgress').textContent =
+          Math.abs(diff) < 0.5 ? '已达标' : `还需${diff > 0 ? '减 ' : '增 '}${Math.abs(diff).toFixed(1)}kg`;
+      }
+      document.getElementById('planBtn').style.display = 'inline-block';
+      document.getElementById('planBtn').className = 'btn btn-success btn-sm px-3';
+      document.getElementById('planBtn').disabled = false;
+      document.getElementById('planBtn').textContent = '生成方案';
+      if (d.plan_type) latestCalc.planType = d.plan_type;
+      else new bootstrap.Modal(document.getElementById('planTypeModal')).show();
+      showToast('BMI 计算完成', 'success');
+      loadHistory();
+      updateChart();
+    });
+}
+
+function generatePlan() {
+  if (latestCalc && latestCalc.planType) { doGeneratePlan(latestCalc.planType); return; }
+  const w = document.getElementById('weightInput').value;
+  if (!w) return showToast('请先输入体重', 'warning');
+  calculateBMI();
+}
+function closePlanModal() {
+  const modal = bootstrap.Modal.getInstance(document.getElementById('planTypeModal'));
+  if (modal) modal.hide();
+}
+function doGeneratePlan(planType) {
+  fetch('/api/plan', { method: 'POST', body: new URLSearchParams({ member_id: USER_ID, plan_type: planType }) })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success) return showToast(d.message, 'danger');
+      document.getElementById('foodTableBody').innerHTML = d.food_plan.map(f =>
+        `<tr><td>${f.meal}</td><td>${f.food}</td><td>${f.portion}</td><td class="fw-medium">${f.cal}</td></tr>`
+      ).join('');
+      const ni = document.getElementById('nutritionInfo');
+      ni.style.display = 'block';
+      document.getElementById('nutritionText').textContent =
+        `蛋白质 ${d.nutrition.protein}g · 脂肪 ${d.nutrition.fat}g · 碳水 ${d.nutrition.carb}g · ${d.nutrition.cal}kcal`;
+      document.getElementById('exerciseTableBody').innerHTML = d.exercise_plan.map(e =>
+        `<tr><td>${e.name}</td><td>${e.duration}</td><td class="fw-medium">${e.cal}</td></tr>`
+      ).join('');
+      document.querySelector('[data-bs-target="#tab-food"]')?.click();
+      const btn = document.getElementById('planBtn');
+      btn.textContent = '已生成';
+      btn.disabled = true;
+      btn.className = 'btn btn-secondary btn-sm px-3';
+      showToast(`方案已生成 · 目标 ${d.target_cal} kcal/日`, 'success');
+    });
+}
+
+function loadHistory() {
+  fetch(`/api/records/${USER_ID}`).then(r => r.json()).then(data => {
+    const tbody = document.getElementById('historyTableBody');
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">暂无记录</td></tr>'; return; }
+    tbody.innerHTML = data.map(r => `<tr>
+      <td class="text-nowrap small text-secondary">${r.date.slice(0,16)}</td>
+      <td class="fw-medium">${r.weight}</td><td>${r.bmi}</td>
+      <td><span class="badge text-bg-${r.status === '正常' ? 'success' : ['偏胖','肥胖'].includes(r.status) ? 'danger' : 'warning'}">${r.status}</span></td>
+      <td class="text-secondary">${r.plan_type}</td>
+      <td><button class="btn btn-sm btn-outline-secondary" onclick="deleteRecord(${r.id})"><i class="bi bi-trash"></i></button></td>
+    </tr>`).join('');
+  });
+}
+function deleteRecord(rid) {
+  if (!confirm('确定删除？')) return;
+  fetch(`/api/records/${rid}/delete`, { method: 'POST' })
+    .then(r => r.json()).then(d => { if (d.success) { showToast('已删除', 'success'); loadHistory(); updateChart(); } });
+}
+
+document.getElementById('chartTypeSelect').addEventListener('change', updateChart);
+document.querySelectorAll('#userTabs .nav-link').forEach(tab => {
+  tab.addEventListener('shown.bs.tab', function(e) {
+    if (e.target.getAttribute('data-bs-target') === '#tab-chart') setTimeout(updateChart, 50);
+  });
+});
+function updateChart() {
+  const type = document.getElementById('chartTypeSelect').value;
+  const ctx = document.getElementById('chartCanvas');
+  if (!ctx) return;
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  if (type === 'weight') {
+    fetch(`/api/chart/weight/${USER_ID}`).then(r => r.json()).then(data => {
+      const labels = data.labels.map(t => t.slice(5,16));
+      const datasets = [{
+        label: '体重', data: data.values,
+        borderColor: '#A8D2FF', backgroundColor: 'rgba(168,210,255,0.08)',
+        fill: true, tension: 0.35, pointRadius: 5, pointBackgroundColor: '#A8D2FF',
+      }];
+      if (data.target) datasets.push({
+        label: '目标 ' + data.target + 'kg',
+        data: Array(data.labels.length).fill(data.target),
+        borderColor: '#C88B8B', borderDash: [6,4], pointRadius: 0, borderWidth: 2,
+      });
+      chartInstance = new Chart(ctx, {
+        type: 'line', data: { labels, datasets },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } } },
+          scales: { y: { beginAtZero: false, grid: { color: '#f1f3f5' } }, x: { grid: { display: false } } }
+        }
+      });
+    });
+  } else {
+    fetch(`/api/chart/bmi-distribution/${USER_ID}`).then(r => r.json()).then(data => {
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: data.bins, datasets: [{
+          label: '人群分布', data: data.hist,
+          backgroundColor: 'rgba(168,210,255,0.5)', borderColor: '#A8D2FF', borderWidth: 1,
+        }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { grid: { color: '#f1f3f5' } }, x: { grid: { display: false } } }
+        },
+        plugins: [{
+          id: 'bmiLine',
+          afterDraw: function(chart) {
+            const userBmi = data.user_bmi;
+            if (!userBmi) return;
+            const c = chart.ctx, xS = chart.scales.x, yS = chart.scales.y;
+            const x = xS.getPixelForValue(userBmi);
+            if (x < xS.left || x > xS.right) return;
+            c.save(); c.strokeStyle = '#C88B8B'; c.lineWidth = 2.5; c.setLineDash([6,4]);
+            c.beginPath(); c.moveTo(x, yS.top); c.lineTo(x, yS.bottom); c.stroke();
+            c.fillStyle = '#C88B8B'; c.font = 'bold 12px sans-serif';
+            c.textAlign = 'center'; c.fillText('您 ' + userBmi, x, yS.top - 8);
+            c.restore();
+          }
+        }]
+      });
+    });
+  }
+}
+setTimeout(updateChart, 300);
+</script>
+{% endblock %}

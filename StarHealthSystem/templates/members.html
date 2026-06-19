@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block page_title %}成员管理{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="text-muted mb-0" style="margin-top:-4px;">管理所有受测成员，查看详细数据与生成方案</p>
+  </div>
+  <a href="{{ url_for('new_member') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i> 新建成员
+  </a>
+</div>
+
+<div class="card">
+  {% if members %}
+  <div class="table-wrap">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>姓名</th>
+          <th>性别</th>
+          <th>身高</th>
+          <th>年龄</th>
+          <th>活动</th>
+          <th>目标</th>
+          <th>记录</th>
+          <th>最近 BMI</th>
+          <th style="width:100px;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in members %}
+        <tr>
+          <td class="fw-medium">{{ m.name }}</td>
+          <td><span class="badge bg-{{ 'primary' if m.gender == '男' else 'pink' }}">{{ m.gender }}</span></td>
+          <td class="text-secondary">{{ m.height }}cm</td>
+          <td class="text-secondary">{{ m.age }}</td>
+          <td class="text-secondary" style="font-size:12px;">{{ m.activity }}</td>
+          <td>{{ m.target_weight if m.target_weight else '--' }}kg</td>
+          <td><span class="badge text-bg-secondary">{{ m.record_count }}</span></td>
+          <td>
+            {% if m.latest_bmi %}
+            <span class="badge text-bg-{{ 'success' if m.latest_status == '正常' else 'danger' if m.latest_status in ['偏胖','肥胖'] else 'warning' }}">
+              {{ m.latest_bmi }}
+            </span>
+            {% else %}--{% endif %}
+          </td>
+          <td>
+            <div class="btn-group btn-group-sm">
+              <a href="{{ url_for('member_detail', mid=m.id) }}" class="btn btn-outline-secondary" title="进入"><i class="bi bi-arrow-right"></i></a>
+              <a href="{{ url_for('edit_member', mid=m.id) }}" class="btn btn-outline-secondary" title="编辑"><i class="bi bi-pencil"></i></a>
+              <button class="btn btn-outline-secondary" onclick="deleteMember({{ m.id }}, '{{ m.name }}')" title="删除"><i class="bi bi-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-people"></i>
+    <p>暂无成员</p>
+    <a href="{{ url_for('new_member') }}" class="btn btn-primary">创建第一个成员</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function deleteMember(mid, name) {
+  if (!confirm(`确定删除成员「${name}」及其所有记录？此操作不可撤销！`)) return;
+  fetch(`/members/${mid}/delete`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => { if (d.success) { showToast(d.message, 'success'); location.reload(); } })
+    .catch(() => showToast('删除失败', 'danger'));
+}
+</script>
+{% endblock %}

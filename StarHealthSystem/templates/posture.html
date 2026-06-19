@@ -1,0 +1,382 @@
+{% if session.get('role') == 'admin' %}
+  {% extends "base.html" %}
+{% else %}
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 体态检测 · 星衡智体</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+  <div class="user-layout">
+    <header class="user-topbar">
+      <div class="user-topbar-left">
+        <a href="{{ url_for('user_dashboard') }}" class="user-topbar-brand">
+          <div class="user-topbar-brand-icon"><i class="bi bi-star-fill"></i></div>
+          <span class="user-topbar-brand-text">星衡智体</span>
+        </a>
+      </div>
+      <div class="user-topbar-right">
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right"></i> 退出</a>
+      </div>
+    </header>
+    <div class="content-wrapper">
+{% endif %}
+
+{% block title %}AI 体态检测 · 星衡智体{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="fw-bold" style="color: var(--primary);">
+            <i class="bi bi-camera me-2"></i>AI 体态检测
+        </h2>
+        <p class="text-muted">上传照片或使用摄像头，AI 自动检测圆肩、驼背、头前伸等体态问题</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 左侧：上传/拍照 -->
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <!-- 模式切换 -->
+                <div class="btn-group mb-3 w-100" role="group">
+                    <input type="radio" class="btn-check" name="inputMode" id="modeUpload" value="upload" checked>
+                    <label class="btn btn-outline-primary" for="modeUpload"><i class="bi bi-cloud-upload"></i> 上传照片</label>
+                    <input type="radio" class="btn-check" name="inputMode" id="modeCamera" value="camera">
+                    <label class="btn btn-outline-primary" for="modeCamera"><i class="bi bi-webcam"></i> 拍照</label>
+                </div>
+
+                <!-- 上传模式 -->
+                <div id="uploadMode">
+                    <div class="upload-zone" id="uploadZone">
+                        <i class="bi bi-image" style="font-size: 3rem; color: var(--primary);"></i>
+                        <p class="mt-2 mb-1 fw-medium">点击或拖拽上传照片</p>
+                        <small class="text-muted">请上传正面或侧面全身/半身照</small>
+                        <input type="file" id="fileInput" accept="image/*" hidden>
+                    </div>
+                    <div id="uploadPreview" class="mt-3" style="display:none;">
+                        <img id="previewImg" class="img-fluid rounded" style="max-height: 300px;">
+                        <div class="mt-2">
+                            <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeUpload()">
+                                <i class="bi bi-search"></i> 开始分析
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="resetUpload()">重新选择</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 拍照模式 -->
+                <div id="cameraMode" style="display:none;">
+                    <div id="cameraFeed" class="mb-3">
+                        <video id="video" class="img-fluid rounded" style="max-height: 300px; background: #000;" autoplay playsinline></video>
+                    </div>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn btn-primary" id="captureBtn" onclick="capturePhoto()">
+                            <i class="bi bi-camera"></i> 拍照
+                        </button>
+                        <button class="btn btn-outline-secondary" id="startCameraBtn" onclick="startCamera()" style="display:none;">
+                            <i class="bi bi-webcam"></i> 开启摄像头
+                        </button>
+                    </div>
+                    <div id="capturePreview" class="mt-3" style="display:none;">
+                        <canvas id="captureCanvas" class="img-fluid rounded" style="max-height: 300px; display:none;"></canvas>
+                        <div class="mt-2">
+                            <button class="btn btn-primary" id="analyzeCaptureBtn" onclick="analyzeCapture()">
+                                <i class="bi bi-search"></i> 分析此照片
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="retakePhoto()">重拍</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 text-start">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        照片仅用于本次分析，不会上传到服务器。
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：结果 -->
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body" id="resultArea">
+                <div class="text-center py-5 text-muted" id="resultPlaceholder">
+                    <i class="bi bi-robot" style="font-size: 3rem;"></i>
+                    <p class="mt-3 fs-5">上传照片或拍照后点击分析</p>
+                    <small>AI 将检测以下体态问题：</small>
+                    <div class="row mt-3 g-2 justify-content-center">
+                        <div class="col-auto"><span class="badge bg-warning text-dark px-3 py-2">圆肩</span></div>
+                        <div class="col-auto"><span class="badge bg-warning text-dark px-3 py-2">驼背</span></div>
+                        <div class="col-auto"><span class="badge bg-warning text-dark px-3 py-2">头前伸</span></div>
+                        <div class="col-auto"><span class="badge bg-warning text-dark px-3 py-2">高低肩</span></div>
+                        <div class="col-auto"><span class="badge bg-warning text-dark px-3 py-2">脊柱侧弯</span></div>
+                    </div>
+                </div>
+
+                <div id="resultContent" style="display:none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <img id="resultImage" class="img-fluid rounded" style="width:100%;">
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="fw-bold">检测结果</h5>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>总体评分</span>
+                                    <span class="fw-bold" id="overallScore">--</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div id="scoreBar" class="progress-bar" role="progressbar"></div>
+                                </div>
+                            </div>
+                            <div id="assessmentDetails"></div>
+                            <div class="alert alert-info mt-3 py-2" id="resultSummary"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="loadingSpinner" style="display:none;" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">AI 正在分析中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 体态知识 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-bold">
+                <i class="bi bi-book me-2"></i>体态问题参考
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="text-center p-3 rounded bg-light h-100">
+                            <div class="rounded-circle bg-warning bg-opacity-10 p-3 d-inline-flex mb-2">
+                                <i class="bi bi-person-up text-warning" style="font-size:1.5rem;"></i>
+                            </div>
+                            <h6 class="fw-bold">头前伸</h6>
+                            <small class="text-muted">耳垂在肩峰前方超过5cm，常见于长期低头看手机</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 rounded bg-light h-100">
+                            <div class="rounded-circle bg-danger bg-opacity-10 p-3 d-inline-flex mb-2">
+                                <i class="bi bi-person-arms-up text-danger" style="font-size:1.5rem;"></i>
+                            </div>
+                            <h6 class="fw-bold">圆肩</h6>
+                            <small class="text-muted">肩峰相对耳垂和髋骨前移，胸肌紧张、背部薄弱</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 rounded bg-light h-100">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-3 d-inline-flex mb-2">
+                                <i class="bi bi-person-down text-primary" style="font-size:1.5rem;"></i>
+                            </div>
+                            <h6 class="fw-bold">驼背</h6>
+                            <small class="text-muted">胸椎曲度过大，上背部呈圆弧形，影响呼吸和外观</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 rounded bg-light h-100">
+                            <div class="rounded-circle bg-info bg-opacity-10 p-3 d-inline-flex mb-2">
+                                <i class="bi bi-person-bounding-box text-info" style="font-size:1.5rem;"></i>
+                            </div>
+                            <h6 class="fw-bold">高低肩</h6>
+                            <small class="text-muted">双肩高度不一致，可能源于脊柱侧弯或不良姿势</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+let capturedImageData = null;
+let cameraStream = null;
+
+// 输入模式切换
+document.querySelectorAll('input[name="inputMode"]').forEach(el => {
+    el.addEventListener('change', function() {
+        if (this.value === 'upload') {
+            document.getElementById('uploadMode').style.display = 'block';
+            document.getElementById('cameraMode').style.display = 'none';
+            stopCamera();
+        } else {
+            document.getElementById('uploadMode').style.display = 'none';
+            document.getElementById('cameraMode').style.display = 'block';
+            startCamera();
+        }
+    });
+});
+
+// 上传
+document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('uploadZone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--primary)'; });
+document.getElementById('uploadZone').addEventListener('dragleave', e => { e.currentTarget.style.borderColor = '#dee2e6'; });
+document.getElementById('uploadZone').addEventListener('drop', e => {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = '#dee2e6';
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+    if (!file.type.startsWith('image/')) return showToast('请选择图片文件', 'warning');
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadZone').style.display = 'none';
+        window.uploadedFile = file;
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetUpload() {
+    document.getElementById('uploadPreview').style.display = 'none';
+    document.getElementById('uploadZone').style.display = 'block';
+    document.getElementById('fileInput').value = '';
+    window.uploadedFile = null;
+}
+
+// 摄像头
+async function startCamera() {
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+        document.getElementById('video').srcObject = cameraStream;
+        document.getElementById('startCameraBtn').style.display = 'none';
+        document.getElementById('captureBtn').style.display = 'inline-block';
+    } catch (err) {
+        showToast('无法访问摄像头：' + err.message, 'danger');
+        document.getElementById('startCameraBtn').style.display = 'inline-block';
+    }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+}
+
+function capturePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('captureCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    capturedImageData = canvas.toDataURL('image/jpeg', 0.9);
+    canvas.style.display = 'block';
+    document.getElementById('capturePreview').style.display = 'block';
+    document.getElementById('captureBtn').style.display = 'none';
+}
+
+function retakePhoto() {
+    document.getElementById('captureCanvas').style.display = 'none';
+    document.getElementById('capturePreview').style.display = 'none';
+    document.getElementById('captureBtn').style.display = 'inline-block';
+    capturedImageData = null;
+}
+
+// 分析
+function analyzeUpload() {
+    const file = window.uploadedFile;
+    if (!file) return showToast('请先选择照片', 'warning');
+    showLoading();
+    const formData = new FormData();
+    formData.append('image', file);
+    fetch('/api/posture/analyze', { method: 'POST', body: formData })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(showResults)
+        .catch(err => { hideLoading(); showToast('分析失败：' + err.message, 'danger'); });
+}
+
+function analyzeCapture() {
+    if (!capturedImageData) return showToast('请先拍照', 'warning');
+    showLoading();
+    fetch('/api/posture/analyze-camera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: capturedImageData }),
+    })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(showResults)
+        .catch(err => { hideLoading(); showToast('分析失败：' + err.message, 'danger'); });
+}
+
+function showLoading() {
+    document.getElementById('resultPlaceholder').style.display = 'none';
+    document.getElementById('resultContent').style.display = 'none';
+    document.getElementById('loadingSpinner').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loadingSpinner').style.display = 'none';
+}
+
+function showResults(d) {
+    hideLoading();
+    if (!d.success) {
+        showToast(d.message, 'warning');
+        document.getElementById('resultPlaceholder').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('resultContent').style.display = 'block';
+    document.getElementById('resultImage').src = d.annotated_image;
+    document.getElementById('overallScore').textContent = d.overall_score + '/10';
+
+    const bar = document.getElementById('scoreBar');
+    const pct = d.overall_score * 10;
+    bar.style.width = pct + '%';
+    bar.className = 'progress-bar ' + (pct >= 70 ? 'bg-success' : pct >= 40 ? 'bg-warning' : 'bg-danger');
+
+    // 详情
+    const details = document.getElementById('assessmentDetails');
+    details.innerHTML = '';
+    const sevLabels = { normal: '正常', mild: '轻微', severe: '明显' };
+    const sevColors = { normal: 'success', mild: 'warning', severe: 'danger' };
+    Object.values(d.details).forEach(item => {
+        details.innerHTML += `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span>${item.label}</span>
+                <span class="badge bg-${sevColors[item.severity]}">${sevLabels[item.severity]}</span>
+            </div>
+        `;
+    });
+
+    document.getElementById('resultSummary').textContent = d.summary;
+
+    // 如果有问题，自动滚动到结果
+    if (d.issues.length) {
+        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+</script>
+{% endblock %}
+{% if session.get('role') != 'admin' %}
+  </div>
+  </div>
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+{% endif %}
